@@ -5,13 +5,19 @@
 #include <fstream>
 #include <sstream>
 
+
 namespace ME {
 
 class Log {
 public:
     enum LogType {VERBOSE, LUA_VERBOSE, WARNING, LUA_WARNING, CRITICAL, LUA_CRITICAL};
 
-    Log(const bool &logToFile = false, const std::string &fileName = "output.log", const bool &logTime = false);
+private:
+    Log(const bool &logToFile, const std::string &fileName, const bool &logTime);
+    static Log* mInstance;
+
+public:
+    static Log* getInstance(const bool &logToFile = false, const std::string &fileName = "output.log", const bool &logTime = false);
 
     Log &operator<<(const char *message) {
         *outStream << std::string(message);

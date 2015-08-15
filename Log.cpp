@@ -2,6 +2,16 @@
 
 using namespace ME;
 
+Log* Log::mInstance;
+
+Log* Log::getInstance(const bool &logToFile, const std::string &fileName, const bool &logTime) {
+    if(!mInstance) {
+        mInstance = new Log(logToFile, fileName, logTime);
+    }
+
+    return mInstance;
+}
+
 Log::Log(const bool &logToFile, const std::string &fileName, const bool &logTime) : mCoutStream(std::cout) {
 
     if (logToFile) {
