@@ -1,98 +1,150 @@
 #ifndef LOG_H
 #define LOG_H
 #include <iostream>
+#include <string>
 #include <ctime>
 #include <fstream>
 #include <sstream>
+#include <mutex>
 
 
 namespace ME {
 
+
+class LogObserver {
+public:
+    virtual void addMessage(const std::string& buffer) = 0;
+};
+
 class Log {
 public:
-    enum LogType {VERBOSE, LUA_VERBOSE, WARNING, LUA_WARNING, CRITICAL, LUA_CRITICAL};
+    /**
+     * The LogType enum
+     */
+    enum LogType {
+        VERBOSE,     ///< A verbose log from C++
+        LUA_VERBOSE, ///< A verbose log from Lua
+        WARNING,     ///< A warning log from C++
+        LUA_WARNING, ///< A warning log from Lua
+        CRITICAL,    ///< A critical log from C++
+        LUA_CRITICAL ///< A critical log from Lua
+    };
 
 private:
-    Log(const bool &logToFile, const std::string &fileName, const bool &logTime);
-    static Log* mInstance;
-
+    Log(const bool& logToFile, const std::string& fileName);
 public:
-    static Log* getInstance(const bool &logToFile = false, const std::string &fileName = "output.log", const bool &logTime = false);
+    static Log* getInstance(const bool& logToFile = false, const std::string& fileName = "output.log");
 
-    Log &operator<<(const char *message) {
-        *outStream << std::string(message);
+    inline Log& operator<<(const char* message) {
+        mTempOutstream << std::string(message);
         return *this;
     }
 
-    Log &operator<<(const int &number) {
+    inline Log& operator<<(const std::string& message) {
+        mTempOutstream << message;
+        return *this;
+    }
+
+    inline Log& operator<<(const int& number) {
         std::stringstream ss;
         ss << number;
-        *outStream << ss.str();
+        mTempOutstream << ss.str();
         return *this;
     }
 
-    Log &operator<<(const float &number) {
+    inline Log& operator<<(const unsigned int& number) {
         std::stringstream ss;
         ss << number;
-        *outStream << ss.str();
+        mTempOutstream << ss.str();
         return *this;
     }
 
-    Log &operator<<(const double &number) {
+    inline Log& operator<<(const float& number) {
         std::stringstream ss;
         ss << number;
-        *outStream << ss.str();
+        mTempOutstream << ss.str();
         return *this;
     }
 
-    Log &operator<<(const bool &boolean) {
+    inline Log& operator<<(const double& number) {
+        std::stringstream ss;
+        ss << number;
+        mTempOutstream << ss.str();
+        return *this;
+    }
+
+    inline Log& operator<<(const bool& boolean) {
         if(boolean) {
-            *outStream << "true";
+            mTempOutstream << "true";
         } else {
-            *outStream << "false";
+            mTempOutstream << "false";
         }
 
         return *this;
     }
 
-    Log &operator<<(const LogType &type) {
+    inline Log& operator<<(const LogType& type) {
         switch (type) {
         case VERBOSE:
-            *outStream << "[VERBOSE] ";
+            mTempOutstream << "[VERBOSE] ";
             break;
         case LUA_VERBOSE:
-            *outStream << "[LUA_VERBOSE] ";
+            mTempOutstream << "[LUA_VERBOSE] ";
             break;
         case WARNING:
-            *outStream << "[WARNING] ";
+            mTempOutstream << "[WARNING] ";
             break;
         case LUA_WARNING:
-            *outStream << "[LUA_WARNING] ";
+            mTempOutstream << "[LUA_WARNING] ";
             break;
         case CRITICAL:
-            *outStream << "[CRITICAL] ";
+            mTempOutstream << "[CRITICAL] ";
             break;
         case LUA_CRITICAL:
-            *outStream << "[LUA_CRITICAL] ";
+            mTempOutstream << "[LUA_CRITICAL] ";
             break;
         default:
-            *outStream << "[UNKNOWN] ";
+            mTempOutstream << "[UNKNOWN] ";
             break;
         }
         return *this;
     }
 
-    Log &operator<<(std::ostream&(*f)(std::ostream&)) {
-        *outStream << std::endl;
+    inline std::string lock() {
+        // lock our resources to avoid crash from thread's related stuff
+        mLock.lock();
+        return "";
+    }
+
+    inline Log& operator<<(std::ostream&(f)(std::ostream&)) {
+
+        *mOutstream << mTempOutstream.str() + "\n";
+
+        if (mCallOnUpdate != nullptr) {
+            mCallOnUpdate->addMessage(std::string(mTempOutstream.str() + "\n"));
+        }
+
+        mTempOutstream.str("");
+
+        mLock.unlock();
+
         return *this;
     }
 
-private:
-    std::string getTime();
+    static std::string getTime();
 
-    std::ostream *outStream;
-    std::ostream &mCoutStream;
-    std::ofstream mOfStream;
+    void setObserver(LogObserver* observer);
+
+    ~Log();
+private:
+    std::mutex mLock;
+
+    bool mLogToFile;
+    std::stringstream mTempOutstream;
+    std::ostream* mOutstream;
+    std::ostream& mCout;
+    std::ofstream mOfstream;
+    LogObserver* mCallOnUpdate;
 };
 
 }
